@@ -57,7 +57,7 @@
 <body>
 
   <div id="login">
-    <h2>🔒 Enter Password to Access ChatLoom</h2>
+    <h2>🔒 Enter Password to Access ChatLoom💬</h2>
     <input type="password" id="passwordInput" placeholder="Enter password..." />
     <button onclick="checkPassword()">Enter</button>
   </div>
@@ -100,8 +100,7 @@
         .order('created_at', { ascending: true });
 
       if (error) {
-        alert('Failed to load messages 😢\n\n' + error.message);
-        console.error(error);
+        alert('Failed to load messages 😢');
         return;
       }
 
@@ -130,12 +129,17 @@
         alert("😢 Send failed!\n\n" + error.message);
       } else {
         messageInput.value = '';
-        // Optional: Remove alert and add success animation later
+        alert("✅ Message sent!\n\n" + text);
       }
     }
 
+    // Real-time chat!
     client.channel('chat-room')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages'
+      }, payload => {
         addMessageToDOM(payload.new);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       })
