@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ChatLoom 💬</title>
+  <title>ChatLoom</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
@@ -71,27 +72,39 @@
     </div>
   </div>
 
-  <script type="module">
+  <script>
     const SUPABASE_URL = 'https://hnkugpcnkzunmkbgowxt.supabase.co';
     const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhua3VncGNua3p1bm1rYmdvd3h0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE4MTM5NDIsImV4cCI6MjA2NzM4OTk0Mn0.z0JnQozVzIapov_KMmNujh1FDl8p9xz9UqXW9rD2WBY';
 
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const messagesDiv = document.getElementById('messages');
     const nameInput = document.getElementById('nameInput');
     const messageInput = document.getElementById('messageInput');
 
+    function checkPassword() {
+      const input = document.getElementById('passwordInput').value;
+      if (input === '.mysecrets123TIARSP') {
+        document.getElementById('login').style.display = 'none';
+        document.getElementById('chat').style.display = 'flex';
+        loadMessages();
+      } else {
+        alert('Wrong password, try again!');
+      }
+    }
+
     async function loadMessages() {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('messages')
         .select('*')
         .order('created_at', { ascending: true });
+
       if (error) {
-        alert('Error loading messages 😢');
+        alert('Failed to load messages 😢');
         console.error(error);
         return;
       }
+
       messagesDiv.innerHTML = '';
       data.forEach(addMessageToDOM);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -108,34 +121,24 @@
       const name = nameInput.value.trim();
       const text = messageInput.value.trim();
       if (!name || !text) return;
-      const { error } = await supabase.from('messages').insert([{ name, text }]);
+
+      const { error } = await client.from('messages').insert([{ name, text }]);
+
       if (error) {
-        alert('Message send failed!');
+        alert('Send failed 😭');
         console.error(error);
+      } else {
+        messageInput.value = '';
       }
-      messageInput.value = '';
     }
 
-    // Real-time messages!
-    supabase
-      .channel('chat-room')
+    // Real-time subscription
+    client.channel('chat-room')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         addMessageToDOM(payload.new);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
       })
       .subscribe();
-
-    function checkPassword() {
-      const input = document.getElementById('passwordInput').value;
-      if (input === '.mysecrets123TIARSP') {
-        document.getElementById('login').style.display = 'none';
-        document.getElementById('chat').style.display = 'flex';
-        loadMessages();
-      } else {
-        alert('Wrong password, try again!');
-      }
-    }
   </script>
-
 </body>
 </html>
