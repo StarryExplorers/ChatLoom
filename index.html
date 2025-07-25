@@ -185,7 +185,7 @@
         pressTimer = setTimeout(() => {
           document.querySelectorAll(".message").forEach(m => m.classList.remove("selected"));
           div.classList.add("selected");
-        }, 700); // 0.7s long press
+        }, 700);
       });
       div.addEventListener("mouseup", () => clearTimeout(pressTimer));
       div.addEventListener("mouseleave", () => clearTimeout(pressTimer));
@@ -207,12 +207,8 @@
     // Auto-refresh messages every 3 seconds
     setInterval(loadMessages, 3000);
 
-    // Check login
-    if (!localStorage.getItem("chatloomUser")) {
-      window.location.href = "login.html";
-    } else {
-      askForPassword();
-    }
+    // Directly ask for password
+    askForPassword();
 
     // Register service worker
     if ("serviceWorker" in navigator) {
