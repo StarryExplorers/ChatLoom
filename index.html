@@ -1,140 +1,223 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>ChatLoom</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-      body {
-        font-family: sans-serif;
-        background: #000;
-        color: white;
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        margin: 0;
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChatLoom – Chat</title>
+  <link rel="manifest" href="manifest.json">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    .message {
+      background: #ffffff;
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      max-width: 70%;
+      position: relative;
+      word-wrap: break-word;
+      transition: background 0.2s;
+    }
+    .my-message {
+      background: #d1f4ff;
+      margin-left: auto;
+    }
+    .delete-btn {
+      display: none;
+      position: absolute;
+      top: -8px;
+      right: -8px;
+      background: red;
+      color: white;
+      border: none;
+      padding: 4px 6px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .message.selected {
+      background: #ffe4e4;
+    }
+    .message.selected .delete-btn {
+      display: block;
+    }
+    .input-area {
+      display: flex;
+      padding: 10px;
+      background: white;
+      border-top: 1px solid #ccc;
+    }
+    input, textarea {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    #nameInput {
+      width: 25%;
+      margin-right: 8px;
+    }
+    #messageInput {
+      flex: 1;
+      margin-right: 8px;
+      height: 36px;
+    }
+    button {
+      padding: 8px 14px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container" id="chatContainer"></div>
+
+  <div class="input-area">
+    <input type="text" id="nameInput" placeholder="Your Name">
+    <textarea id="messageInput" placeholder="Type a message..."></textarea>
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    const backendURL = "https://chatloom-backend-starryexplorers-projects.vercel.app/api";
+    let ENCRYPTION_KEY = "";
+    let globalPassword = "";
+
+    async function askForPassword() {
+      globalPassword = prompt("Enter Chat Room Password:");
+      if (!globalPassword) {
+        alert("Password required!");
+        return askForPassword();
       }
 
-      #login {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        flex-grow: 1;
-      }
+      const res = await fetch(`${backendURL}/key`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: globalPassword })
+      });
 
-      #chat {
-        flex-grow: 1;
-        display: none;
-        flex-direction: column;
-      }
-
-      #messages {
-        flex-grow: 1;
-        overflow-y: auto;
-        padding: 10px;
-      }
-
-      #inputContainer {
-        display: flex;
-        padding: 10px;
-        border-top: 1px solid #444;
-      }
-
-      input, button {
-        font-size: 16px;
-        padding: 10px;
-      }
-
-      #nameInput, #messageInput {
-        flex: 1;
-        margin-right: 10px;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="login">
-      <h2>Enter Password</h2>
-      <input id="passwordInput" type="password" placeholder="Password" />
-      <button onclick="checkPassword()">Enter</button>
-    </div>
-
-    <div id="chat">
-      <div id="messages"></div>
-      <div id="inputContainer">
-        <input id="nameInput" placeholder="Name" />
-        <input id="messageInput" placeholder="Message" />
-        <button onclick="sendMessage()">Send</button>
-      </div>
-    </div>
-
-    <script>
-      const SUPABASE_URL = 'https://YOUR_PROJECT.supabase.co';
-      const SUPABASE_KEY = 'YOUR_ANON_KEY';
-
-      let client;
-
-      function checkPassword() {
-        const input = document.getElementById('passwordInput').value.trim();
-        if (!input) return alert("Please enter a password!");
-
-        // Create the client *with the password header*
-        client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-          global: {
-            headers: {
-              'chatloom-password': input
-            }
-          }
-        });
-
-        document.getElementById('login').style.display = 'none';
-        document.getElementById('chat').style.display = 'flex';
+      const data = await res.json();
+      if (res.ok) {
+        ENCRYPTION_KEY = data.encryptionKey;
         loadMessages();
-        startRealtime();
+      } else {
+        alert("Wrong password!");
+        askForPassword();
+      }
+    }
+
+    function encryptMessage(message) {
+      return CryptoJS.AES.encrypt(message, ENCRYPTION_KEY).toString();
+    }
+
+    function decryptMessage(cipherText) {
+      try {
+        const bytes = CryptoJS.AES.decrypt(cipherText, ENCRYPTION_KEY);
+        return bytes.toString(CryptoJS.enc.Utf8) || "❌ Error decrypting";
+      } catch (e) {
+        return "❌ Error decrypting";
+      }
+    }
+
+    async function loadMessages() {
+      const res = await fetch(`${backendURL}/messages`, {
+        headers: { password: globalPassword }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        const container = document.getElementById("chatContainer");
+        container.innerHTML = "";
+        data.forEach(msg => addMessageToUI(msg));
+      }
+    }
+
+    async function sendMessage() {
+      const name = document.getElementById("nameInput").value.trim();
+      const text = document.getElementById("messageInput").value.trim();
+      if (!name || !text) return alert("Please enter both name and message!");
+
+      const encryptedText = encryptMessage(`${name}: ${text}`);
+
+      await fetch(`${backendURL}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", password: globalPassword },
+        body: JSON.stringify({ sender_id: name, text: encryptedText })
+      });
+
+      document.getElementById("messageInput").value = "";
+      loadMessages();
+    }
+
+    function addMessageToUI(msg) {
+      const container = document.getElementById("chatContainer");
+      const div = document.createElement("div");
+      div.classList.add("message");
+      if (msg.sender_id === document.getElementById("nameInput").value) {
+        div.classList.add("my-message");
       }
 
-      async function loadMessages() {
-        const { data, error } = await client.from('messages').select('*').order('timestamp', { ascending: true });
-        if (error) {
-          alert('Wrong password or error loading messages!');
-          location.reload();
-          return;
-        }
-        const messages = document.getElementById('messages');
-        messages.innerHTML = '';
-        data.forEach(msg => {
-          const div = document.createElement('div');
-          div.textContent = `${msg.name}: ${msg.text}`;
-          messages.appendChild(div);
-        });
-        messages.scrollTop = messages.scrollHeight;
-      }
+      div.innerHTML = `
+        ${decryptMessage(msg.text)}
+        <button class="delete-btn" onclick="deleteMessage(${msg.id})">×</button>
+      `;
 
-      async function sendMessage() {
-        const name = document.getElementById('nameInput').value.trim();
-        const text = document.getElementById('messageInput').value.trim();
-        if (!name || !text) return;
+      // Long press for delete (WhatsApp style)
+      let pressTimer;
+      div.addEventListener("mousedown", () => {
+        pressTimer = setTimeout(() => {
+          document.querySelectorAll(".message").forEach(m => m.classList.remove("selected"));
+          div.classList.add("selected");
+        }, 700); // 0.7s long press
+      });
+      div.addEventListener("mouseup", () => clearTimeout(pressTimer));
+      div.addEventListener("mouseleave", () => clearTimeout(pressTimer));
 
-        await client.from('messages').insert([{ name, text }]);
-        document.getElementById('messageInput').value = '';
-      }
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
 
-      function startRealtime() {
-        client
-          .channel('realtime:messages')
-          .on('postgres_changes', {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages'
-          }, payload => {
-            const msg = payload.new;
-            const messages = document.getElementById('messages');
-            const div = document.createElement('div');
-            div.textContent = `${msg.name}: ${msg.text}`;
-            messages.appendChild(div);
-            messages.scrollTop = messages.scrollHeight;
-          })
-          .subscribe();
-      }
-    </script>
-  </body>
+    async function deleteMessage(id) {
+      if (!confirm("Delete this message?")) return;
+      await fetch(`${backendURL}/messages`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", password: globalPassword },
+        body: JSON.stringify({ id })
+      });
+      loadMessages();
+    }
+
+    // Auto-refresh messages every 3 seconds
+    setInterval(loadMessages, 3000);
+
+    // Check login
+    if (!localStorage.getItem("chatloomUser")) {
+      window.location.href = "login.html";
+    } else {
+      askForPassword();
+    }
+
+    // Register service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("service-worker.js");
+    }
+  </script>
+</body>
 </html>
