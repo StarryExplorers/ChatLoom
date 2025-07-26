@@ -116,7 +116,8 @@
 
       const data = await res.json();
       if (res.ok) {
-        ENCRYPTION_KEY = data.encryptionKey;
+        // Use SECRET_ENCRYPTION_PASSWORD from backend
+        ENCRYPTION_KEY = data.encryptionKey;  
         loadMessages();
       } else {
         alert("Wrong password!");
@@ -207,7 +208,7 @@
     // Auto-refresh messages every 3 seconds
     setInterval(loadMessages, 3000);
 
-    // Directly ask for password
+    // Ask for password on page load
     askForPassword();
 
     // Register service worker
